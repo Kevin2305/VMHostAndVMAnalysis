@@ -13,6 +13,7 @@ MAIN_CHART_TITLE = '虚拟机可用数量 (STD: 2 vCPU/4G vMEM)'
 MAIN_CHART_WIDTH = 1200
 MAIN_CHART_HEIGHT = 580
 
-VMHOST = 'VMHosts'
-
+VMHOSTS = 'VMHosts'
+VMS = 'VMs'
+STD_VM_MEM = 4
 PIE_SHEET_NAME = 'Cluster Statistics'

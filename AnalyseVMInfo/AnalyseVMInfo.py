@@ -32,7 +32,7 @@ def writeExcel(sheetname_obj,content,x_axis,y_axis):
         print(e)
 
 def vmAnalysis(workbook_obj,sheetname_obj,vmstat,vmhosts):
-    newsheet_nrow = len(vmstat) + clusterAnalysis(sheetname_obj,vmhosts,vmstat) 
+    newsheet_nrow = len(vmstat) + clusterStatistic(sheetname_obj,vmhosts,vmstat) 
     main_chart = workbook_obj.add_chart({'type':'column'})
     sec_chart = workbook_obj.add_chart({'type':'line'})
     main_chart.add_series({'categories':'=%s!A2:A%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
@@ -84,18 +84,69 @@ def main():
     src_wb = openExcel(GlobalVariables.FILEPATH + GlobalVariables.SRC_FILE)
 
     # Get src data
-    sheet3 = getData(src_wb,GlobalVariables.SRC_SHEET_NAME, 'row')
-    sheet1 = getData(src_wb,GlobalVariables.VMHOST, 'column')
-
+    #sheet3 = getData(src_wb,GlobalVariables.SRC_SHEET_NAME, 'row')
+    sheet1 = getData(src_wb,GlobalVariables.VMHOSTS, 'column')
+    sheet2 = getData(src_wb,GlobalVariables.VMS, 'row')
+    
+    
     with xlsxwriter.Workbook(GlobalVariables.FILEPATH + GlobalVariables.DEST_FILE) as dest_wb:
         dest_sh_stat = dest_wb.add_worksheet(GlobalVariables.DEST_SHEET_NAME)
+        vmhostsStatistic(dest_sh_stat,sheet1,sheet2)
+    '''
         for x in range(len(sheet3)):
             for y in range(len(sheet3[x])):
                 writeExcel(dest_sh_stat,sheet3[x][y],x,y)
             vmAnalysis(dest_wb,dest_sh_stat,sheet3,sheet1)
-        
+    '''
 
-def clusterAnalysis(sheetname,vmhosts,vmstat):
+def vmhostsStatistic(sheetname,vmhosts,vms):    
+    title = ['VM Host Name',
+             'vCPU(#)',
+             'Provisioned vCPU(#)',
+             'Physical Memory(GB)',
+             'Provisioned Physical Memory(GB)',
+             'Current VM Count(#)',
+             'Spare VM Count(#)']
+    sheetname.write_row('A1', title)
+    hostnames = list(set(vmhosts[0]) - set([vmhosts[0][0]]))
+    dict_hosts = {}
+    for cname in hostnames:
+        dict_hosts['%s' % cname]={'totalvcpu': 0,
+                                  'totalvmem': 0,
+                                  'totalusedvcpu': 0,
+                                  'totalusedvmem': 0,
+                                  'totalvmnum': 0,
+                                  'totalsparevmnum': 0}
+    for i in range(1,len(vms)):
+        host = vms[i][5]
+        for j in range(1,len(vmhosts[0])):
+            if vmhosts[0][j] == host:
+                if vmhosts[6][j] == 1 or vmhosts[6][j] == True:
+                    dict_hosts[host]['totalvcpu'] = vmhosts[1][j] * 2 
+                else:
+                    dict_hosts[host]['totalvcpu'] = vmhosts[1][j]
+                dict_hosts[host]['totalvmem'] = vmhosts[2][j]
+        dict_hosts[host]['totalusedvcpu'] = dict_hosts[host]['totalusedvcpu'] + vms[i][1]
+        dict_hosts[host]['totalusedvmem'] = dict_hosts[host]['totalusedvmem'] + vms[i][2]
+        dict_hosts[host]['totalvmnum'] = dict_hosts[host]['totalvmnum'] + 1
+    for name in hostnames:
+        if dict_hosts[host]['totalvmem'] <= dict_hosts[host]['totalusedvmem']:
+            dict_hosts[host]['totalsparevmnum'] = 0
+        else:
+            dict_hosts[host]['totalsparevmnum'] = (dict_hosts[host]['totalvmem'] - dict_hosts[host]['totalusedvmem'])//GlobalVariables.STD_VM_MEM
+    for i in range(len(hostnames)):
+        content = []
+        content.append(hostnames[i])
+        content.append(dict_hosts[hostnames[i]]['totalvcpu'])
+        content.append(dict_hosts[hostnames[i]]['totalusedvcpu'])
+        content.append(dict_hosts[hostnames[i]]['totalvmem'])
+        content.append(dict_hosts[hostnames[i]]['totalusedvmem'])
+        content.append(dict_hosts[hostnames[i]]['totalvmnum'])
+        content.append(dict_hosts[hostnames[i]]['totalsparevmnum'])
+        sheetname.write_row('A%s' % (i + 2), content)
+
+
+def clusterStatistic(sheetname,vmhosts,vmstat):
     # cluster capacity analysis
     clusternames = list(set(vmhosts[8]) - set([vmhosts[8][0]]))
     dict_cls = {}
