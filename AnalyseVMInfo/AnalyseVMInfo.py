@@ -32,7 +32,7 @@ def writeExcel(sheetname_obj,content,x_axis,y_axis):
         print(e)
 
 def vmAnalysis(workbook_obj,sheetname_obj,vmstat,vmhosts):
-    newsheet_nrow = clusterAnalysis(sheetname_obj,vmhosts,vmstat) + len(vmstat) 
+    newsheet_nrow = len(vmstat) + clusterAnalysis(sheetname_obj,vmhosts,vmstat) 
     main_chart = workbook_obj.add_chart({'type':'column'})
     sec_chart = workbook_obj.add_chart({'type':'line'})
     main_chart.add_series({'categories':'=%s!A2:A%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
@@ -59,15 +59,21 @@ def vmAnalysis(workbook_obj,sheetname_obj,vmstat,vmhosts):
                                    'color': 'green',
                                    'none': True}
                          })
+    '''
     main_chart.set_x_axis({'major_gridlines': {'visible': True,
-                                               'line': {'width': 1.25,
+                                               'line': {'width': 3.25,
                                                         'dash_type': 'dash'}
                                                }
                            })
+    '''
     main_chart.set_size({'width': GlobalVariables.MAIN_CHART_WIDTH, 'height': GlobalVariables.MAIN_CHART_HEIGHT})
     main_chart.set_title({'name': GlobalVariables.MAIN_CHART_TITLE})
     main_chart.set_x_axis({'name': GlobalVariables.MAIN_CHART_X_NAME})
     main_chart.set_y_axis({'name': GlobalVariables.MAIN_CHART_Y_NAME})
+
+    main_chart.set_table({'show_keys': True})
+    main_chart.set_legend({'position': 'none'})
+
     sec_chart.set_y2_axis({'name': GlobalVariables.SEC_CHART_Y2_NAME})
 
     main_chart.combine(sec_chart)
