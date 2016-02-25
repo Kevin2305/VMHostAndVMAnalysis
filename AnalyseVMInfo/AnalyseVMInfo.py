@@ -87,6 +87,7 @@ def main():
 def clusterCapacity(vmhosts,vmstat):
     # cluster capacity
     clusternames = list(set(vmhosts[8]) - set([vmhosts[8][0]]))
+    dict_cls = {}
     for cname in clusternames:
         dict_cls['%s' % cname]={'totalvcpu': 0,
                                 'totalvmem': 0,
@@ -94,14 +95,14 @@ def clusterCapacity(vmhosts,vmstat):
                                 'totalusedvmem': 0}
     for i in range(1,len(vmhosts[0])):
         cluster = vmhosts[8][i]
-        vmhost = vmhosts[1][i]
+        vmhost = vmhosts[0][i]
         for j in range(1,len(vmstat)):
             if vmhost == vmstat[j][0]:
-
-
-
-
- 
+                dict_cls[cluster]['totalvcpu'] = dict_cls[cluster]['totalvcpu'] + vmstat[j][1]
+                dict_cls[cluster]['totalusedvcpu'] = dict_cls[cluster]['totalusedvcpu'] + vmstat[j][2]
+                dict_cls[cluster]['totalvmem'] = dict_cls[cluster]['totalvmem'] + vmstat[j][3]
+                dict_cls[cluster]['totalusedvmem'] = dict_cls[cluster]['totalusedvmem'] + vmstat[j][4]
+    print(dict_cls)
 
 
 if __name__ == '__main__':
