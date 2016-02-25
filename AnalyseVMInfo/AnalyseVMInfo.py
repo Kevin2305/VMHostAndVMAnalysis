@@ -31,33 +31,39 @@ def writeExcel(sheetname_obj,content,x_axis,y_axis):
     except Exception as e:
         print(e)
 
-def analysisVM(workbook_obj,sheetname_obj,data):
+def vmAnalysis(workbook_obj,sheetname_obj,vmstat,vmhosts):
+    newsheet_nrow = clusterAnalysis(sheetname_obj,vmhosts,vmstat) + len(vmstat) 
     main_chart = workbook_obj.add_chart({'type':'column'})
     sec_chart = workbook_obj.add_chart({'type':'line'})
-    main_chart.add_series({'categories':'=%s!A2:A%s' % (GlobalVariables.DEST_SHEET_NAME,len(data)),
-                           'values':'=%s!B2:B%s' % (GlobalVariables.DEST_SHEET_NAME,len(data)),
-                           'name':'%s' % (data[0][1]),
+    main_chart.add_series({'categories':'=%s!A2:A%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
+                           'values':'=%s!B2:B%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
+                           'name':'%s' % (vmstat[0][1]),
                            'fill': {'color': 'red'}})
-    main_chart.add_series({'values':'=%s!C2:C%s' % (GlobalVariables.DEST_SHEET_NAME,len(data)),
-                           'name':'%s' % (data[0][2]),
+    main_chart.add_series({'values':'=%s!C2:C%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
+                           'name':'%s' % (vmstat[0][2]),
                            'fill': {'color': 'yellow'}})
-    main_chart.add_series({'values':'=%s!D2:D%s' % (GlobalVariables.DEST_SHEET_NAME,len(data)),
-                           'name':'%s' % (data[0][3])})
-    main_chart.add_series({'values':'=%s!E2:E%s' % (GlobalVariables.DEST_SHEET_NAME,len(data)),
-                           'name':'%s' % (data[0][4])})
-    sec_chart.add_series({'categories':'=%s!A2:A%s' % (GlobalVariables.DEST_SHEET_NAME,len(data)),
-                          'values': '=%s!G2:G%s' % (GlobalVariables.DEST_SHEET_NAME,len(data)),
+    main_chart.add_series({'values':'=%s!D2:D%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
+                           'name':'%s' % (vmstat[0][3])})
+    main_chart.add_series({'values':'=%s!E2:E%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
+                           'name':'%s' % (vmstat[0][4])})
+    sec_chart.add_series({'categories':'=%s!A2:A%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
+                          'values': '=%s!G2:G%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
                           'marker': {'type': 'diamond',
                                      'size': 8,
                                      #'border': {'color': 'black'},
                                      'fill':   {'color': 'blue'}
                                      },
-                          'name': '%s' % (data[0][6]),
+                          'name': '%s' % (vmstat[0][6]),
                           'y2_axis': True,
                           'line': {'size': 3,
                                    'color': 'green',
                                    'none': True}
                          })
+    main_chart.set_x_axis({'major_gridlines': {'visible': True,
+                                               'line': {'width': 1.25,
+                                                        'dash_type': 'dash'}
+                                               }
+                           })
     main_chart.set_size({'width': GlobalVariables.MAIN_CHART_WIDTH, 'height': GlobalVariables.MAIN_CHART_HEIGHT})
     main_chart.set_title({'name': GlobalVariables.MAIN_CHART_TITLE})
     main_chart.set_x_axis({'name': GlobalVariables.MAIN_CHART_X_NAME})
@@ -65,7 +71,7 @@ def analysisVM(workbook_obj,sheetname_obj,data):
     sec_chart.set_y2_axis({'name': GlobalVariables.SEC_CHART_Y2_NAME})
 
     main_chart.combine(sec_chart)
-    sheetname_obj.insert_chart('A%d' % (len(data)+2),main_chart)
+    sheetname_obj.insert_chart('A%d' % (newsheet_nrow+2),main_chart)
 
 def main():
     # open source xlsx
@@ -74,25 +80,26 @@ def main():
     # Get src data
     sheet3 = getData(src_wb,GlobalVariables.SRC_SHEET_NAME, 'row')
     sheet1 = getData(src_wb,GlobalVariables.VMHOST, 'column')
-    clusterCapacity(sheet1,sheet3)
-    '''
+
     with xlsxwriter.Workbook(GlobalVariables.FILEPATH + GlobalVariables.DEST_FILE) as dest_wb:
         dest_sh_stat = dest_wb.add_worksheet(GlobalVariables.DEST_SHEET_NAME)
         for x in range(len(sheet3)):
             for y in range(len(sheet3[x])):
                 writeExcel(dest_sh_stat,sheet3[x][y],x,y)
-            analysisVM(dest_wb,dest_sh_stat,sheet3)
-    '''
+            vmAnalysis(dest_wb,dest_sh_stat,sheet3,sheet1)
+        
 
-def clusterCapacity(vmhosts,vmstat):
-    # cluster capacity
+def clusterAnalysis(sheetname,vmhosts,vmstat):
+    # cluster capacity analysis
     clusternames = list(set(vmhosts[8]) - set([vmhosts[8][0]]))
     dict_cls = {}
     for cname in clusternames:
         dict_cls['%s' % cname]={'totalvcpu': 0,
                                 'totalvmem': 0,
                                 'totalusedvcpu': 0,
-                                'totalusedvmem': 0}
+                                'totalusedvmem': 0,
+                                'totalvmnum': 0,
+                                'totalsparevmnum': 0}
     for i in range(1,len(vmhosts[0])):
         cluster = vmhosts[8][i]
         vmhost = vmhosts[0][i]
@@ -102,8 +109,19 @@ def clusterCapacity(vmhosts,vmstat):
                 dict_cls[cluster]['totalusedvcpu'] = dict_cls[cluster]['totalusedvcpu'] + vmstat[j][2]
                 dict_cls[cluster]['totalvmem'] = dict_cls[cluster]['totalvmem'] + vmstat[j][3]
                 dict_cls[cluster]['totalusedvmem'] = dict_cls[cluster]['totalusedvmem'] + vmstat[j][4]
-    print(dict_cls)
-
+                dict_cls[cluster]['totalvmnum'] = dict_cls[cluster]['totalvmnum'] + vmstat[j][5]
+                dict_cls[cluster]['totalsparevmnum'] = dict_cls[cluster]['totalsparevmnum'] + vmstat[j][6]
+    for i in range(len(clusternames)):
+        content = []
+        content.append(clusternames[i])
+        content.append(dict_cls[clusternames[i]]['totalvcpu'])
+        content.append(dict_cls[clusternames[i]]['totalusedvcpu'])
+        content.append(dict_cls[clusternames[i]]['totalvmem'])
+        content.append(dict_cls[clusternames[i]]['totalusedvmem'])
+        content.append(dict_cls[clusternames[i]]['totalvmnum'])
+        content.append(dict_cls[clusternames[i]]['totalsparevmnum'])
+        sheetname.write_row('A%s' % (len(vmstat) + 1 + i), content)
+    return len(clusternames)
 
 if __name__ == '__main__':
     main()
