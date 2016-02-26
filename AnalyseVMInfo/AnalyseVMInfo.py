@@ -31,21 +31,21 @@ def writeExcel(sheetname_obj,content,x_axis,y_axis):
     except Exception as e:
         print(e)
 
-def vmAnalysis(workbook_obj,sheetname_obj,vmstat,vmhosts):
-    newsheet_nrow = len(vmstat) + clusterStatistic(sheetname_obj,vmhosts,vmstat) 
-    main_chart = workbook_obj.add_chart({'type':'column'})
-    sec_chart = workbook_obj.add_chart({'type':'line'})
-    main_chart.add_series({'categories':'=%s!A2:A%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
-                           'values':'=%s!B2:B%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
-                           'name':'%s' % (vmstat[0][1]),
+def drawChart(workbook_obj,sheetname_obj,sheet1_nrow,sheet2_nrom):
+    newsheet_nrow = sheet1_nrow + sheet2_nrom
+    main_chart = workbook_obj.add_chart({'type': 'column'})
+    sec_chart = workbook_obj.add_chart({'type': 'line'})
+    main_chart.add_series({'categories': '=%s!A2:A%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
+                           'values': '=%s!B2:B%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
+                           'name': 'Total vCPU(#)',
                            'fill': {'color': 'red'}})
-    main_chart.add_series({'values':'=%s!C2:C%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
-                           'name':'%s' % (vmstat[0][2]),
+    main_chart.add_series({'values': '=%s!C2:C%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
+                           'name': 'Provisioned vCPU(#)',
                            'fill': {'color': 'yellow'}})
     main_chart.add_series({'values':'=%s!D2:D%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
-                           'name':'%s' % (vmstat[0][3])})
+                           'name':'Total Physical Memory(GB)'})
     main_chart.add_series({'values':'=%s!E2:E%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
-                           'name':'%s' % (vmstat[0][4])})
+                           'name':'Provisioned Physical Memory(GB)'})
     sec_chart.add_series({'categories':'=%s!A2:A%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
                           'values': '=%s!G2:G%s' % (GlobalVariables.DEST_SHEET_NAME,newsheet_nrow),
                           'marker': {'type': 'diamond',
@@ -53,19 +53,12 @@ def vmAnalysis(workbook_obj,sheetname_obj,vmstat,vmhosts):
                                      #'border': {'color': 'black'},
                                      'fill':   {'color': 'blue'}
                                      },
-                          'name': '%s' % (vmstat[0][6]),
+                          'name': 'Spare VM Count(#)',
                           'y2_axis': True,
                           'line': {'size': 3,
                                    'color': 'green',
                                    'none': True}
                          })
-    '''
-    main_chart.set_x_axis({'major_gridlines': {'visible': True,
-                                               'line': {'width': 3.25,
-                                                        'dash_type': 'dash'}
-                                               }
-                           })
-    '''
     main_chart.set_size({'width': GlobalVariables.MAIN_CHART_WIDTH, 'height': GlobalVariables.MAIN_CHART_HEIGHT})
     main_chart.set_title({'name': GlobalVariables.MAIN_CHART_TITLE})
     main_chart.set_x_axis({'name': GlobalVariables.MAIN_CHART_X_NAME})
@@ -91,7 +84,8 @@ def main():
     
     with xlsxwriter.Workbook(GlobalVariables.FILEPATH + GlobalVariables.DEST_FILE) as dest_wb:
         dest_sh_stat = dest_wb.add_worksheet(GlobalVariables.DEST_SHEET_NAME)
-        vmhostsStatistic(dest_sh_stat,sheet1,sheet2)
+        sheet1_nrow = vmhostsStatistic(dest_sh_stat,sheet1,sheet2)
+        #sheet2_nrow = clusterStatistic(dest_sh_stat,sheet1,sheet2)
     '''
         for x in range(len(sheet3)):
             for y in range(len(sheet3[x])):
@@ -101,9 +95,9 @@ def main():
 
 def vmhostsStatistic(sheetname,vmhosts,vms):    
     title = ['VM Host Name',
-             'vCPU(#)',
+             'Total vCPU(#)',
              'Provisioned vCPU(#)',
-             'Physical Memory(GB)',
+             'Total Physical Memory(GB)',
              'Provisioned Physical Memory(GB)',
              'Current VM Count(#)',
              'Spare VM Count(#)']
@@ -130,21 +124,14 @@ def vmhostsStatistic(sheetname,vmhosts,vms):
         dict_hosts[host]['totalusedvmem'] = dict_hosts[host]['totalusedvmem'] + vms[i][2]
         dict_hosts[host]['totalvmnum'] = dict_hosts[host]['totalvmnum'] + 1
     for name in hostnames:
-        if dict_hosts[host]['totalvmem'] <= dict_hosts[host]['totalusedvmem']:
-            dict_hosts[host]['totalsparevmnum'] = 0
+        if dict_hosts[name]['totalvmem'] <= dict_hosts[name]['totalusedvmem']:
+            dict_hosts[name]['totalsparevmnum'] = 0
         else:
-            dict_hosts[host]['totalsparevmnum'] = (dict_hosts[host]['totalvmem'] - dict_hosts[host]['totalusedvmem'])//GlobalVariables.STD_VM_MEM
-    for i in range(len(hostnames)):
-        content = []
-        content.append(hostnames[i])
-        content.append(dict_hosts[hostnames[i]]['totalvcpu'])
-        content.append(dict_hosts[hostnames[i]]['totalusedvcpu'])
-        content.append(dict_hosts[hostnames[i]]['totalvmem'])
-        content.append(dict_hosts[hostnames[i]]['totalusedvmem'])
-        content.append(dict_hosts[hostnames[i]]['totalvmnum'])
-        content.append(dict_hosts[hostnames[i]]['totalsparevmnum'])
-        sheetname.write_row('A%s' % (i + 2), content)
-
+            dict_hosts[name]['totalsparevmnum'] = (dict_hosts[name]['totalvmem'] - dict_hosts[name]['totalusedvmem'])//GlobalVariables.STD_VM_MEM
+    content = formatDict2List(dict_hosts)
+    for i in range(len(content)):
+        sheetname.write_row('A%s' % (i + 2), content[i])
+    return len(hostnames)
 
 def clusterStatistic(sheetname,vmhosts,vmstat):
     # cluster capacity analysis
@@ -179,6 +166,35 @@ def clusterStatistic(sheetname,vmhosts,vmstat):
         content.append(dict_cls[clusternames[i]]['totalsparevmnum'])
         sheetname.write_row('A%s' % (len(vmstat) + 1 + i), content)
     return len(clusternames)
+
+def formatDict2List(dict_data):
+    keys = list(dict_data.keys())
+    result = []
+    for i in range(len(keys)):
+        content = []
+        content.append(keys[i])
+        content.append(dict_data[keys[i]]['totalvcpu'])
+        content.append(dict_data[keys[i]]['totalusedvcpu'])
+        content.append(dict_data[keys[i]]['totalvmem'])
+        content.append(dict_data[keys[i]]['totalusedvmem'])
+        content.append(dict_data[keys[i]]['totalvmnum'])
+        content.append(dict_data[keys[i]]['totalsparevmnum'])
+        result.append(content)
+    return result
+
+def get_VMHost_vCPU_vMEM(vmhosts, hostname):
+    data = {'totalvcpu': 0,
+            'totalvmem': 0}
+    for i in range(len(1,vmhosts[0])):
+        if vmhosts[0][i] == hostname:
+            if vmhosts[6][i] == True or vmhosts[6][i] == 'True' or vmhosts[6][i] ==1:
+                data['totalvcpu'] = (vmhosts[1][i] * 2)
+            else:
+                data['totalvcpu'] = vmhosts[1][i]
+            data['totalvmem'] = vmhosts[2][i]
+            return data
+    return 0
+
 
 if __name__ == '__main__':
     main()
