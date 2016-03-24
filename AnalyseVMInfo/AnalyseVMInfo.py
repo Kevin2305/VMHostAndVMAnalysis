@@ -56,7 +56,7 @@ def drawChart(workbook_obj,sheetname_obj,sheet1_nrow,sheet2_nrom):
                                      #'border': {'color': 'black'},
                                      'fill':   {'color': 'blue'}
                                      },
-                          'name': 'Spare VM Count(#)',
+                          'name': 'Available VM Count(#)',
                           'y2_axis': True,
                           'line': {'size': 3,
                                    'color': 'green',
@@ -83,7 +83,7 @@ def vmhostsStatistic(sheetname,vmhosts,vms):
              'Total Physical Memory(GB)',
              'Provisioned Physical Memory(GB)',
              'Current VM Count(#)',
-             'Spare VM Count(#)']
+             'Available VM Count(#)']
     sheetname.write_row('A1', title)
     hostnames = list(set(vmhosts[0]) - set([vmhosts[0][0]]))
     dict_hosts = {}
